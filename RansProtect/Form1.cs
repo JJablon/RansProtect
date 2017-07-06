@@ -108,6 +108,7 @@ namespace RansProtect
             treeView1.Update();
             treeView1.Refresh();
 
+
             System.Windows.Forms.TreeNode Nodes2 = treeView1.Nodes[0];
             treeView1.Nodes[0].Expand();
             TreeWalker.ExpandNodes(Nodes2.Nodes[0], structure);
