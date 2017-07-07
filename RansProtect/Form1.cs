@@ -79,8 +79,8 @@ namespace RansProtect
                 }
                 if(this.treeView1.Nodes == null || this.treeView1.Nodes.Count == 0)
                  root = this.treeView1.Nodes.Add("ROOT");
-                if(!currentNode.Files.Contains(e.Name))
-                currentNode.Files.Add(e.Name);
+                if(!currentNode.Files.Contains(fi.Name))
+                currentNode.Files.Add(fi.Name);
 
                 //ran = true;
             }
