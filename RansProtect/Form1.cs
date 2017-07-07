@@ -40,6 +40,8 @@ namespace RansProtect
                 Stack<String> nodes = new Stack<String>();
                 //this.listBox1.Items.Add("Changed:" + e.FullPath);
                 FileInfo fi = new FileInfo(e.FullPath);
+                //nodes.Push(fi.Name);
+
                 DirectoryInfo parent = fi.Directory;
                 do
                 {
@@ -53,9 +55,10 @@ namespace RansProtect
 
                 while (Path.GetPathRoot(e.FullPath) != parent.FullName);
                 nodes.Push(parent.Name);
-                var reversed = nodes.ToArray();
+                //var reversed = nodes.ToArray();
                 //Array.Reverse(reversed);
                 var currentNode = structure;
+                //bool first_node = true;
                 foreach (string name in nodes)
                 {
                     //listBox2.Items.Add(name);
@@ -71,11 +74,13 @@ namespace RansProtect
                     }
                     else
                     {
-                        listBox2.Items.Add("fatal error");
+                        listBox1.Items.Add("fatal error");
                     }
                 }
                 if(this.treeView1.Nodes == null || this.treeView1.Nodes.Count == 0)
                  root = this.treeView1.Nodes.Add("ROOT");
+                if(!currentNode.Files.Contains(e.Name))
+                currentNode.Files.Add(e.Name);
 
                 //ran = true;
             }
@@ -113,13 +118,13 @@ namespace RansProtect
             treeView1.Nodes[0].Expand();
             TreeWalker.ExpandNodes(Nodes2.Nodes[0], structure);
             if(selected != "")
-             treeView1.SelectedNode =  TreeWalker.GetNodeFromPath(treeView1.Nodes, selected, treeView1) ;
+             treeView1.SelectedNode =  TreeWalker.GetTreeViewNodeFromPath(treeView1.Nodes, selected, treeView1) ;
             /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         }
         private void timer1_Tick(object sender, EventArgs e)
         {
             Refresh();
-            timer1.Interval = 1000;
+           if(timer1.Interval != 10000) timer1.Interval = 10000;
 
         }
 
@@ -140,11 +145,134 @@ namespace RansProtect
             System.Windows.Forms.TreeNode tn = this.treeView1.SelectedNode;
 
         }
+
+        private void toolStripStatusLabel2_Click(object sender, EventArgs e)
+        {
+            if (treeView1.Nodes != null && treeView1.Nodes.Count > 0&& treeView1.Nodes[0]!= null)
+            {
+                System.Windows.Forms.TreeNode nodes2 = treeView1.Nodes[0];
+                treeView1.Nodes[0].ExpandAll();
+                if (treeView1.Nodes[0] != null && treeView1.Nodes[0].Nodes != null && treeView1.Nodes[0].Nodes.Count > 0) treeView1.Nodes[0].Nodes[0].Expand();
+                TreeWalker.ExpandAll(nodes2, structure);
+            }
+        }
+
+        private void toolStripStatusLabel3_Click(object sender, EventArgs e)
+        {
+            if (treeView1.Nodes != null && treeView1.Nodes.Count > 0 && treeView1.Nodes[0] != null)
+            {
+                System.Windows.Forms.TreeNode nodes2 = treeView1.Nodes[0];
+                treeView1.CollapseAll();
+                TreeWalker.CollapseAll(nodes2, structure);
+                treeView1.Nodes[0].Expand();
+                if (treeView1.Nodes[0] != null && treeView1.Nodes[0].Nodes != null && treeView1.Nodes[0].Nodes.Count > 0) treeView1.Nodes[0].Nodes[0].Expand();
+            }
+
+
+
+            
+           
+        }
+
+        private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            TreeNode node_selected = TreeWalker.ResolvePath(treeView1, e.Node,structure);
+            listBox1.Items.Clear();
+            listBox1.Items.AddRange(node_selected.Files.ToArray());
+
+           // this.Text = node_selected.Name;
+
+        }
     }
 
     static class TreeWalker
     {
-        public static System.Windows.Forms.TreeNode GetNodeFromPath(TreeNodeCollection nodes, string path, TreeView tvPD2)
+        public static TreeNode ResolvePath(TreeView tv, System.Windows.Forms.TreeNode tn, TreeNode structure)
+        {
+
+           // System.Windows.Forms.TreeNode tn2 = TreeWalker.GetTreeViewNodeFromPath(tv.Nodes, tn.FullPath, tv);
+            
+            System.Windows.Forms.TreeNode current_node = tn;
+            Stack<String> nodes = new Stack<String>();
+
+            do
+            {
+                nodes.Push(current_node.Text);
+                current_node = current_node.Parent;
+
+
+
+            }
+            while (current_node!= null && current_node.Parent != null);
+            tn.GetType(); //dummy for breakpoint
+
+            TreeNode current = structure;
+            if(nodes.Pop() == "ROOT")
+            if (current != null)
+
+                for (; ;)
+            {
+                        if (nodes.Count < 1) break;
+                    if (current == null) break;
+                    if (current.Children.Count == 0) break;
+                    
+                    
+                    current = current.GetChildNode(nodes.Pop());
+                    
+                   
+
+
+
+                }
+            return current;
+
+
+        }
+        public static void ExpandAll(System.Windows.Forms.TreeNode Nodes, TreeNode tn)
+        {
+            if (Nodes != null && Nodes.Nodes != null && Nodes.Nodes.Count > 0)
+            {
+                //Nodes = Nodes.Nodes[0];
+                for (int i = 0; i < Nodes.Nodes.Count; i++)
+                {
+                    System.Windows.Forms.TreeNode checknode = Nodes.Nodes[i];
+
+                    if (tn != null) Nodes.Expand(); //checknode
+                    tn.Expanded = true;                                                      //tn.GetChildNode(checknode.Text).Expanded = true;
+                    if (tn != null && tn.GetChildNode(checknode.Text) != null)
+                    {
+                        ExpandAll(checknode, tn.GetChildNode(checknode.Text));
+                    }
+                }
+
+            }
+
+
+
+        }
+
+        public static void CollapseAll(System.Windows.Forms.TreeNode Nodes, TreeNode tn)
+        {
+            if (Nodes != null && Nodes.Nodes != null && Nodes.Nodes.Count > 0)
+            {
+                //Nodes = Nodes.Nodes[0];
+                for (int i = 0; i < Nodes.Nodes.Count; i++)
+                {
+                    System.Windows.Forms.TreeNode checknode = Nodes.Nodes[i];
+                    tn.Expanded = false;
+                    if (tn != null) Nodes.Collapse(); //checknode
+                                                      //tn.GetChildNode(checknode.Text).Expanded = true;
+                    if (tn != null && tn.GetChildNode(checknode.Text) != null)
+                    {
+                        ExpandAll(checknode, tn.GetChildNode(checknode.Text));
+                    }
+                }
+
+            }
+
+        }
+
+        public static System.Windows.Forms.TreeNode GetTreeViewNodeFromPath(TreeNodeCollection nodes, string path, TreeView tvPD2)
         {
             System.Windows.Forms.TreeNode foundNode = null;
             foreach (System.Windows.Forms.TreeNode tn in nodes)
@@ -158,7 +286,7 @@ namespace RansProtect
                 }
                 else if (tn.Nodes.Count > 0)
                 {
-                    foundNode = GetNodeFromPath(tn.Nodes, path,tvPD2);
+                    foundNode = GetTreeViewNodeFromPath(tn.Nodes, path,tvPD2);
                 }
                 if (foundNode != null)
                     return foundNode;
@@ -234,12 +362,13 @@ namespace RansProtect
                     
                 }
 
-                if (tn.Changed > 10) temp.ForeColor = System.Drawing.Color.Green;
-                if (tn.Changed > 50) temp.ForeColor = System.Drawing.Color.Yellow;
-                if (tn.Changed > 100) temp.ForeColor = System.Drawing.Color.Orange;
+                if (tn.Changed > 10) temp.ForeColor = System.Drawing.Color.Blue;
+                if (tn.Changed > 50) temp.ForeColor = System.Drawing.Color.Green;
+                if (tn.Changed > 100) temp.ForeColor = System.Drawing.Color.DarkGreen;
                 if (tn.Changed > 200) temp.ForeColor = System.Drawing.Color.DarkOrange;
                 if (tn.Changed > 1000) temp.ForeColor = System.Drawing.Color.OrangeRed;
                 if (tn.Changed > 2000) temp.ForeColor = System.Drawing.Color.Red;
+                if (tn.Changed > 10000) temp.ForeColor = System.Drawing.Color.HotPink;
                 if (tn.Children != null && tn.Children.Count != 0)
                     foreach (TreeNode node in tn.Children)
                     {
@@ -305,12 +434,14 @@ namespace RansProtect
         public string Name { get; set; }
         public int Changed { get; set; }
         public bool Expanded { get; set; }
+        public List<string> Files { get; set; }
         //public TreeNode FirstChild { get;  set; }
         public List<TreeNode> Children { get; set; }
         //public TreeNode NextSibling { get;  set; }
         public TreeNode(string data, TreeNode firstChild//, TreeNode nextSibling
             )
         {
+            this.Files = new List<string>();
             this.AddedToTree = false;
             this.Name = data;
             //this.FirstChild = firstChild;
