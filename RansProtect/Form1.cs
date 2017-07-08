@@ -232,12 +232,13 @@ namespace RansProtect
         {
             if (Nodes != null && Nodes.Nodes != null && Nodes.Nodes.Count > 0)
             {
+                if (Nodes.IsExpanded == false) Nodes.ExpandAll();
                 //Nodes = Nodes.Nodes[0];
                 for (int i = 0; i < Nodes.Nodes.Count; i++)
                 {
                     System.Windows.Forms.TreeNode checknode = Nodes.Nodes[i];
 
-                    if (tn != null) Nodes.Expand(); //checknode
+                    //if (tn != null) Nodes.Expand(); //checknode
                     tn.Expanded = true;                                                      //tn.GetChildNode(checknode.Text).Expanded = true;
                     if (tn != null && tn.GetChildNode(checknode.Text) != null)
                     {
