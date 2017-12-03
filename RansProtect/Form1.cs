@@ -12,31 +12,188 @@ namespace RansProtect
 {
     public partial class Form1 : Form
     {
-        public bool ran = false;
-        public static long iteration = 0;
-
+        
         public Form1()
         {
             InitializeComponent();
-            /*try
-            {
-                System.Diagnostics.EventLog.CreateEventSource("RansProtect", "RansProtect");
+            TreeWalker.Init(this.treeView1,this.listBox1, 10000);
+                /*try
+                {
+                    System.Diagnostics.EventLog.CreateEventSource("RansProtect", "RansProtect");
+                }
+                catch (Exception) { }
+                if (System.Diagnostics.EventLog.SourceExists("RansProtect"))
+                {
+                    System.Diagnostics.EventLog.WriteEntry("RansProtect", "event1", System.Diagnostics.EventLogEntryType.Information);
+                    //eventLog1.WriteEntry("event1", System.Diagnostics.EventLogEntryType.SuccessAudit, 6666);
+                    eventLog1.WriteEvent(new System.Diagnostics.EventInstance(6666, 6666), "event1");
+                }
+                else { MessageBox.Show("aaa"); }*/
             }
-            catch (Exception) { }
-            if (System.Diagnostics.EventLog.SourceExists("RansProtect"))
-            {
-                System.Diagnostics.EventLog.WriteEntry("RansProtect", "event1", System.Diagnostics.EventLogEntryType.Information);
-                //eventLog1.WriteEntry("event1", System.Diagnostics.EventLogEntryType.SuccessAudit, 6666);
-                eventLog1.WriteEvent(new System.Diagnostics.EventInstance(6666, 6666), "event1");
-            }
-            else { MessageBox.Show("aaa"); }*/
+    
+        private void toolStripStatusLabel1_Click(object sender, EventArgs e)
+        {
+            TreeWalker.RefreshAllController();
+
+            
         }
-        TreeNode structure = new TreeNode("ROOT", null);
-        System.Windows.Forms.TreeNode root;
-        private void fileSystemWatcher1_Changed(object sender, System.IO.FileSystemEventArgs e)
+
+        /// <summary>
+        /// TODO
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void addToWhitelistToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            System.Windows.Forms.TreeNode tn = this.treeView1.SelectedNode;
+
+        }
+
+        private void toolStripStatusLabel2_Click(object sender, EventArgs e)
+        {
+            TreeWalker.ExpandAllController();
+        }
+
+        private void toolStripStatusLabel3_Click(object sender, EventArgs e)
+        {
+            TreeWalker.CollapseAllController();
+        }
+
+
+
+
+
+        public static System.Windows.Forms.TreeNode root;
+        delegate void AddNodeDelegate(string text);
+        public void AddNode(string text)
+        {
+            // InvokeRequired required compares the thread ID of the  
+            // calling thread to the thread ID of the creating thread.  
+            // If these threads are different, it returns true.  
+            if (treeView1.InvokeRequired)
+            {
+                AddNodeDelegate d = new AddNodeDelegate(AddNode);
+                this.Invoke(d, new object[] { text });
+            }
+            else
+            {
+               root = treeView1.Nodes.Add(text);
+            }
+        }
+    }
+
+    static class TreeWalker
+    {
+        private static List<FileSystemWatcher> allDrives = new List<FileSystemWatcher>();
+        private static TreeView tv;
+        private static ListBox lb;
+        private static bool ran = false;
+        private static long iteration = 0;
+        private static int refreshTime;
+        private static TreeNode structure = new TreeNode("ROOT", null);
+        private static System.Windows.Forms.TreeNode root;
+        private static Timer timer = new Timer();
+        public static void Init(TreeView tv1,ListBox lb1, int refreshTime)
+        {
+            tv = tv1;
+            lb = lb1;
+            DriveInfo[] drives = DriveInfo.GetDrives();
+            timer.Interval = 100;
+            TreeWalker.refreshTime = refreshTime;
+            timer.Tick += Timer_Tick;
+            tv.AfterSelect += Tv_AfterSelect;
+
+            foreach (DriveInfo d in drives)
+            {
+                if (d.DriveType == DriveType.Fixed)
+                {
+                    FileSystemWatcher fs = new FileSystemWatcher(d.Name);
+                    fs.Changed += fileSystemWatcher1_Changed;
+                    fs.EnableRaisingEvents = true;
+                    fs.IncludeSubdirectories = true;
+                    allDrives.Add(fs);
+                }
+            }
+            timer.Enabled = true;
+        }
+
+        private static void Timer_Tick(object sender, EventArgs e)
+        {
+            Refresh();
+            if (timer.Interval != refreshTime) timer.Interval = refreshTime;
+        }
+
+        private static void Tv_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+           
+                TreeNode node_selected = TreeWalker.ResolvePath(tv, e.Node, structure);
+                lb.Items.Clear();
+                lb.Items.AddRange(node_selected.Files.ToArray());
+
+                // this.Text = node_selected.Name;
+
+            
+        }
+        public static void CollapseAllController()
+        {
+            if (tv.Nodes != null && tv.Nodes.Count > 0 && tv.Nodes[0] != null)
+            {
+                System.Windows.Forms.TreeNode nodes2 = tv.Nodes[0];
+                tv.CollapseAll();
+                TreeWalker.CollapseAll(nodes2, structure);
+                tv.Nodes[0].Expand();
+                if (tv.Nodes[0] != null && tv.Nodes[0].Nodes != null && tv.Nodes[0].Nodes.Count > 0) tv.Nodes[0].Nodes[0].Expand();
+            }
+
+        }
+        public static void RefreshAllController()
+        {
+            TreeWalker.RefreshStats(structure);
+            Refresh();
+
+        }
+        private static void Refresh()
+        {
+
+            TreeWalker.RefreshExpanded(structure);
+            string selected = "";
+            if (tv.SelectedNode != null)
+                selected = tv.SelectedNode.FullPath;
+            List<string> ExpandedNodes = new List<string>();
+            if (tv != null && tv.Nodes != null && tv.Nodes.Count > 0 && tv.Nodes[0].Nodes != null && tv.Nodes[0].Nodes.Count > 0)
+            {
+
+
+                System.Windows.Forms.TreeNode Nodes1 = tv.Nodes[0];
+                structure.Expanded = true;
+                TreeWalker.collectExpandedNodes(Nodes1.Nodes[0], structure);
+            }
+
+            tv.Nodes.Clear();
+            if (tv.Nodes == null || tv.Nodes.Count == 0 || !tv.Nodes.Contains(new System.Windows.Forms.TreeNode("ROOT")))
+                root = tv.Nodes.Add("ROOT");
+            tv.BeginUpdate();
+            TreeWalker.RefreshAdded(structure);
+            TreeWalker.Walk(structure, root);
+
+            tv.EndUpdate();
+            tv.Update();
+            tv.Refresh();
+
+
+            System.Windows.Forms.TreeNode Nodes2 = tv.Nodes[0];
+            tv.Nodes[0].Expand();
+            TreeWalker.ExpandNodes(Nodes2.Nodes[0], structure);
+            if (selected != "")
+                tv.SelectedNode = TreeWalker.GetTreeViewNodeFromPath(tv.Nodes, selected, tv);
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        }
+
+        private static void fileSystemWatcher1_Changed(object sender, System.IO.FileSystemEventArgs e)
         {
             iteration++;
-            if (!ran) {
+            if (!ran)
+            {
                 Stack<String> nodes = new Stack<String>();
                 //this.listBox1.Items.Add("Changed:" + e.FullPath);
                 FileInfo fi = new FileInfo(e.FullPath);
@@ -49,8 +206,9 @@ namespace RansProtect
 
                     nodes.Push(parent.Name);
 
-
-                    parent = Directory.GetParent(parent.FullName);
+                    if (Directory.GetParent(parent.FullName) != null)
+                        parent = Directory.GetParent(parent.FullName);
+                    else break;
                 }
 
                 while (Path.GetPathRoot(e.FullPath) != parent.FullName);
@@ -74,119 +232,29 @@ namespace RansProtect
                     }
                     else
                     {
-                        listBox1.Items.Add("fatal error");
+                        lb.Items.Add("fatal error");
                     }
                 }
-                if(this.treeView1.Nodes == null || this.treeView1.Nodes.Count == 0)
-                 root = this.treeView1.Nodes.Add("ROOT");
-                if(!currentNode.Files.Contains(fi.Name))
-                currentNode.Files.Add(fi.Name);
+                if (tv.Nodes == null || tv.Nodes.Count == 0)
+                    root =  tv.Nodes.Add("ROOT");
+                //root = Form1.root;
+                //Form1.
+
+
+
+                if (!currentNode.Files.Contains(fi.Name))
+                    currentNode.Files.Add(fi.Name);
 
                 //ran = true;
             }
         }
-        private void Refresh()
-        {
-
-            TreeWalker.RefreshExpanded(structure);
-            string selected = "";
-            if(treeView1.SelectedNode != null)
-            selected = treeView1.SelectedNode.FullPath;
-            List<string> ExpandedNodes = new List<string>();
-            if (treeView1 != null && treeView1.Nodes != null && treeView1.Nodes.Count > 0 && treeView1.Nodes[0].Nodes != null && treeView1.Nodes[0].Nodes.Count > 0)
-            {
 
 
-                System.Windows.Forms.TreeNode Nodes1 = treeView1.Nodes[0];
-                structure.Expanded = true;
-                TreeWalker.collectExpandedNodes(Nodes1.Nodes[0], structure);
-            }
-
-            treeView1.Nodes.Clear();
-            if (this.treeView1.Nodes == null || this.treeView1.Nodes.Count == 0||!this.treeView1.Nodes.Contains(new System.Windows.Forms.TreeNode("ROOT")))
-                root = this.treeView1.Nodes.Add("ROOT");
-            treeView1.BeginUpdate();
-            TreeWalker.RefreshAdded(structure);
-            TreeWalker.Walk(structure, root);
-
-            treeView1.EndUpdate();
-            treeView1.Update();
-            treeView1.Refresh();
-
-
-            System.Windows.Forms.TreeNode Nodes2 = treeView1.Nodes[0];
-            treeView1.Nodes[0].Expand();
-            TreeWalker.ExpandNodes(Nodes2.Nodes[0], structure);
-            if(selected != "")
-             treeView1.SelectedNode =  TreeWalker.GetTreeViewNodeFromPath(treeView1.Nodes, selected, treeView1) ;
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        }
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            Refresh();
-           if(timer1.Interval != 10000) timer1.Interval = 10000;
-
-        }
-
-        private void toolStripStatusLabel1_Click(object sender, EventArgs e)
-        {
-            TreeWalker.RefreshStats(structure);
-            Refresh();
-
-        }
-
-        /// <summary>
-        /// TODO
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void addToWhitelistToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            System.Windows.Forms.TreeNode tn = this.treeView1.SelectedNode;
-
-        }
-
-        private void toolStripStatusLabel2_Click(object sender, EventArgs e)
-        {
-            if (treeView1.Nodes != null && treeView1.Nodes.Count > 0&& treeView1.Nodes[0]!= null)
-            {
-                System.Windows.Forms.TreeNode nodes2 = treeView1.Nodes[0];
-                treeView1.Nodes[0].ExpandAll();
-                if (treeView1.Nodes[0] != null && treeView1.Nodes[0].Nodes != null && treeView1.Nodes[0].Nodes.Count > 0) treeView1.Nodes[0].Nodes[0].Expand();
-                TreeWalker.ExpandAll(nodes2, structure);
-            }
-        }
-
-        private void toolStripStatusLabel3_Click(object sender, EventArgs e)
-        {
-            if (treeView1.Nodes != null && treeView1.Nodes.Count > 0 && treeView1.Nodes[0] != null)
-            {
-                System.Windows.Forms.TreeNode nodes2 = treeView1.Nodes[0];
-                treeView1.CollapseAll();
-                TreeWalker.CollapseAll(nodes2, structure);
-                treeView1.Nodes[0].Expand();
-                if (treeView1.Nodes[0] != null && treeView1.Nodes[0].Nodes != null && treeView1.Nodes[0].Nodes.Count > 0) treeView1.Nodes[0].Nodes[0].Expand();
-            }
+      
 
 
 
-            
-           
-        }
 
-        private void treeView1_AfterSelect(object sender, TreeViewEventArgs e)
-        {
-            TreeNode node_selected = TreeWalker.ResolvePath(treeView1, e.Node,structure);
-            listBox1.Items.Clear();
-            listBox1.Items.AddRange(node_selected.Files.ToArray());
-
-           // this.Text = node_selected.Name;
-
-        }
-    }
-
-    static class TreeWalker
-    {
         public static TreeNode ResolvePath(TreeView tv, System.Windows.Forms.TreeNode tn, TreeNode structure)
         {
 
@@ -373,7 +441,7 @@ namespace RansProtect
                     foreach (TreeNode node in tn.Children)
                     {
                         TreeWalker.Walk(node, temp);
-                        if (Form1.iteration > 100)
+                        if (TreeWalker.iteration > 100)
                             {
                              dummy++;
                             }
@@ -419,11 +487,16 @@ namespace RansProtect
             tn.AddedToTree = false;
         }
 
-
-
-
-
-
+        internal static void ExpandAllController()
+        {
+            if (tv.Nodes != null && tv.Nodes.Count > 0 && tv.Nodes[0] != null)
+            {
+                System.Windows.Forms.TreeNode nodes2 = tv.Nodes[0];
+                tv.Nodes[0].ExpandAll();
+                if (tv.Nodes[0] != null && tv.Nodes[0].Nodes != null && tv.Nodes[0].Nodes.Count > 0) tv.Nodes[0].Nodes[0].Expand();
+                TreeWalker.ExpandAll(nodes2, structure);
+            }
+        }
     }
 
 
